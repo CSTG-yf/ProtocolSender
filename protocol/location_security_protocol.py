@@ -197,6 +197,25 @@ class LocationSecurityProtocol:
             
             # 计算包长度（不包含CRC）
             package_length = header_length + len(content)
+        elif message_type == 0x0104:
+            # 获取BDS周计数和周计秒
+            week, second = self._get_bds_week_and_second()
+            
+            # 打包欺骗干扰告警信息
+            content = struct.pack(
+                '!H I B 4s 4s B B B',
+                week,                       # BDS参考周计数 (2字节)
+                second,                     # BDS参考周内秒 (4字节)
+                0x01,                       # 欺骗干扰数目m (1字节，固定为0x01)
+                bytes.fromhex(message_content.get('latitude', '00000000').zfill(8)),    # 欺骗干扰纬度 (4字节)
+                bytes.fromhex(message_content.get('longitude', '00000000').zfill(8)),   # 欺骗干扰经度 (4字节)
+                int(message_content.get('effective_distance', '00').zfill(2), 16),      # 欺骗干扰有效距离 (1字节)
+                message_content.get('nav_system', 0x14),                                # 欺骗干扰的卫星导航信号 (1字节)
+                int(message_content.get('confidence', '00').zfill(2), 16)               # 欺骗干扰置信度 (1字节)
+            )
+            
+            # 计算包长度（不包含CRC）
+            package_length = header_length + len(content)
         else:
             content = b''
             package_length = header_length
@@ -266,6 +285,19 @@ class LocationSecurityProtocol:
                 int(content.get('interference_type', 1)),
                 int(content.get('intensity', '00').zfill(2), 16),
                 int(content.get('confidence', 50))
+            )
+            return header_length + len(content_bytes)  # 不加CRC
+        elif message_type == 0x0104:
+            content_bytes = struct.pack(
+                '!H I B 4s 4s B B B',
+                self._get_bds_week_and_second()[0],
+                self._get_bds_week_and_second()[1],
+                0x01,  # 欺骗干扰数目m (固定为0x01)
+                bytes.fromhex(content.get('latitude', '00000000').zfill(8)),
+                bytes.fromhex(content.get('longitude', '00000000').zfill(8)),
+                int(content.get('effective_distance', '00').zfill(2), 16),
+                content.get('nav_system', 0x14),
+                int(content.get('confidence', '00').zfill(2), 16)
             )
             return header_length + len(content_bytes)  # 不加CRC
         else:

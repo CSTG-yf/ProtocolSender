@@ -75,6 +75,8 @@ class LocationSecurityForm(QWidget):
             self.create_nav_message_verification_fields()
         elif self.current_message_type == 0x0103:
             self.create_interference_warning_fields()
+        elif self.current_message_type == 0x0104:
+            self.create_spoofing_warning_fields()
         else:
             # 清空内容区域，显示提示
             self.clear_content_layout()
@@ -278,6 +280,77 @@ class LocationSecurityForm(QWidget):
         self.confidence_edit.textChanged.connect(self.update_package_length)
         self.content_layout.addRow("压制干扰置信度 (1字节):", self.confidence_edit)
 
+    def create_spoofing_warning_fields(self):
+        """创建欺骗干扰告警信息的字段"""
+        self.clear_content_layout()
+        
+        # BDS参考周计数
+        self.week_edit = QLineEdit()
+        self.week_edit.setText(f"{self.initial_bds_week:04X}")
+        self.week_edit.setReadOnly(True)
+        self.week_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("BDS参考周计数 (2字节):", self.week_edit)
+        
+        # BDS参考周内秒
+        self.second_edit = QLineEdit()
+        self.second_edit.setText(f"{self.initial_bds_second:08X}")
+        self.second_edit.setReadOnly(True)
+        self.second_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("BDS参考周内秒 (4字节):", self.second_edit)
+        
+        # 欺骗干扰数目m
+        self.spoofing_count_edit = QLineEdit("01")
+        self.spoofing_count_edit.setReadOnly(True)
+        self.spoofing_count_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("欺骗干扰数目m (1字节):", self.spoofing_count_edit)
+        
+        # 欺骗干扰纬度
+        self.latitude_edit = QLineEdit()
+        self.latitude_edit.setMaxLength(8)
+        self.latitude_edit.setPlaceholderText("4字节十六进制，不足高位补0")
+        self.latitude_edit.textChanged.connect(self.validate_hex_input)
+        self.latitude_edit.textChanged.connect(self.update_message_content)
+        self.latitude_edit.textChanged.connect(self.update_package_length)
+        self.content_layout.addRow("欺骗干扰纬度 (4字节):", self.latitude_edit)
+        
+        # 欺骗干扰经度
+        self.longitude_edit = QLineEdit()
+        self.longitude_edit.setMaxLength(8)
+        self.longitude_edit.setPlaceholderText("4字节十六进制，不足高位补0")
+        self.longitude_edit.textChanged.connect(self.validate_hex_input)
+        self.longitude_edit.textChanged.connect(self.update_message_content)
+        self.longitude_edit.textChanged.connect(self.update_package_length)
+        self.content_layout.addRow("欺骗干扰经度 (4字节):", self.longitude_edit)
+        
+        # 欺骗干扰有效距离
+        self.effective_distance_edit = QLineEdit()
+        self.effective_distance_edit.setMaxLength(2)
+        self.effective_distance_edit.setPlaceholderText("1字节十六进制，不足高位补0")
+        self.effective_distance_edit.textChanged.connect(self.validate_hex_input)
+        self.effective_distance_edit.textChanged.connect(self.update_message_content)
+        self.effective_distance_edit.textChanged.connect(self.update_package_length)
+        self.content_layout.addRow("欺骗干扰有效距离 (1字节):", self.effective_distance_edit)
+        
+        # 欺骗干扰的卫星导航信号
+        self.nav_system_combo = QComboBox()
+        for code, desc in self.protocol.NAV_SYSTEM_OPTIONS.items():
+            self.nav_system_combo.addItem(f"0x{code:02X} - {desc}", code)
+        self.nav_system_combo.setCurrentText("0x14 - BDS-B3I")  # 默认BDS
+        self.nav_system_combo.currentIndexChanged.connect(self.update_message_content)
+        self.nav_system_combo.currentIndexChanged.connect(self.update_package_length)
+        self.content_layout.addRow("欺骗干扰的卫星导航信号 (1字节):", self.nav_system_combo)
+        
+        # 欺骗干扰置信度
+        self.confidence_edit = QLineEdit()
+        self.confidence_edit.setMaxLength(2)
+        self.confidence_edit.setPlaceholderText("2位十六进制数")
+        hex_validator = QRegExpValidator(QRegExp("[0-9A-Fa-f]{0,2}"))
+        self.confidence_edit.setValidator(hex_validator)
+        self.confidence_edit.textChanged.connect(self.validate_hex_input)
+        self.confidence_edit.textChanged.connect(self.update_message_content)
+        self.confidence_edit.textChanged.connect(self.update_package_length)
+        self.content_layout.addRow("欺骗干扰置信度 (1字节):", self.confidence_edit)
+
     def validate_confidence(self):
         """验证置信度输入是否为有效的十六进制数"""
         if not hasattr(self, 'confidence_edit'):
@@ -346,43 +419,26 @@ class LocationSecurityForm(QWidget):
 
     def update_message_content(self):
         """更新消息内容"""
-        if self.current_message_type == 0x0101:
-            if not hasattr(self, 'nav_system_combo') or not hasattr(self, 'nav_status_combo') or \
-               not hasattr(self, 'signal_status_edit') or not hasattr(self, 'satellite_status_edit'):
-                return
+        if not hasattr(self, 'current_message_type'):
+            return
             
+        if self.current_message_type == 0x0101:
             self.message_content = {
                 'nav_system': self.nav_system_combo.currentData(),
-                'nav_status': self.nav_status_combo.currentData(),
-                'signal_status': self.signal_status_edit.text().zfill(8),
-                'satellite_status': self.satellite_status_edit.text().zfill(16)
+                'nav_status': 0x00,  # 默认值
+                'signal_status': '00000000',  # 默认值
+                'satellite_status': '0000000000000000',  # 默认值
             }
         elif self.current_message_type == 0x0102:
-            if not hasattr(self, 'nav_system_combo') or not hasattr(self, 'verification_count_edit') or \
-               not hasattr(self, 'satellite_number_edit') or not hasattr(self, 'nav_message_type_combo') or \
-               not hasattr(self, 'ref_time_edit') or not hasattr(self, 'verification_word_edit'):
-                return
-            
-            # 确保 message_type 有默认值（避免 None）
-            message_type = self.nav_message_type_combo.currentData()
-            if message_type is None:
-                message_type = 0x01
-
             self.message_content = {
                 'nav_system': self.nav_system_combo.currentData(),
-                'verification_count': self.verification_count_edit.text().zfill(2) if self.verification_count_edit.text() else '00',
-                'satellite_number': self.satellite_number_edit.text().zfill(2) if self.satellite_number_edit.text() else '00',
-                'message_type': message_type,
+                'verification_count': self.verification_count_edit.text(),
+                'satellite_number': self.satellite_number_edit.text(),
+                'message_type': self.nav_message_type_combo.currentData(),
                 'ref_time': self.ref_time_edit.text(),
                 'verification_word': self.verification_word_edit.text()
             }
         elif self.current_message_type == 0x0103:
-            if not hasattr(self, 'latitude_edit') or not hasattr(self, 'longitude_edit') or \
-               not hasattr(self, 'center_freq_edit') or not hasattr(self, 'bandwidth_edit') or \
-               not hasattr(self, 'interference_type_combo') or not hasattr(self, 'intensity_edit') or \
-               not hasattr(self, 'confidence_edit'):
-                return
-            
             self.message_content = {
                 'latitude': self.latitude_edit.text().zfill(8),
                 'longitude': self.longitude_edit.text().zfill(8),
@@ -390,7 +446,15 @@ class LocationSecurityForm(QWidget):
                 'bandwidth': self.bandwidth_edit.text().zfill(4),
                 'interference_type': self.interference_type_combo.currentData(),
                 'intensity': self.intensity_edit.text().zfill(2),
-                'confidence': int(self.confidence_edit.text(), 16) if self.confidence_edit.text() else 0
+                'confidence': self.confidence_edit.text().zfill(2)
+            }
+        elif self.current_message_type == 0x0104:
+            self.message_content = {
+                'latitude': self.latitude_edit.text().zfill(8),
+                'longitude': self.longitude_edit.text().zfill(8),
+                'effective_distance': self.effective_distance_edit.text().zfill(2),
+                'nav_system': self.nav_system_combo.currentData(),
+                'confidence': self.confidence_edit.text().zfill(2)
             }
 
 
@@ -422,6 +486,14 @@ class LocationSecurityForm(QWidget):
                     'bandwidth': self.bandwidth_edit.text().zfill(4),
                     'interference_type': self.interference_type_combo.currentData(),
                     'intensity': self.intensity_edit.text().zfill(2),
+                    'confidence': self.confidence_edit.text().zfill(2)
+                }
+            elif self.current_message_type == 0x0104:
+                message_content = {
+                    'latitude': self.latitude_edit.text().zfill(8),
+                    'longitude': self.longitude_edit.text().zfill(8),
+                    'effective_distance': self.effective_distance_edit.text().zfill(2),
+                    'nav_system': self.nav_system_combo.currentData(),
                     'confidence': self.confidence_edit.text().zfill(2)
                 }
             else:
