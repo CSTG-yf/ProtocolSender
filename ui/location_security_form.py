@@ -64,26 +64,6 @@ class LocationSecurityForm(QWidget):
         self.setLayout(layout)
         self.update_package_length()
 
-    def on_message_type_changed(self, index):
-        """消息类型改变时更新内容区域"""
-        self.current_message_type = self.message_type_combo.currentData()
-        
-        # 根据消息类型显示不同的内容字段
-        if self.current_message_type == 0x0101:
-            self.create_satellite_nav_status_fields()
-        elif self.current_message_type == 0x0102:
-            self.create_nav_message_verification_fields()
-        elif self.current_message_type == 0x0103:
-            self.create_interference_warning_fields()
-        elif self.current_message_type == 0x0104:
-            self.create_spoofing_warning_fields()
-        else:
-            # 清空内容区域，显示提示
-            self.clear_content_layout()
-            self.content_layout.addRow(QLabel("请选择有效的消息类型查看详细字段"))
-        
-        self.update_package_length()
-
     def create_satellite_nav_status_fields(self):
         """创建卫星导航系统服务状态信息的字段"""
         self.clear_content_layout()
@@ -124,6 +104,7 @@ class LocationSecurityForm(QWidget):
         self.signal_status_edit.textChanged.connect(self.validate_hex_input)
         self.signal_status_edit.textChanged.connect(self.update_message_content)
         self.signal_status_edit.textChanged.connect(self.update_package_length)
+        self.signal_status_edit.textChanged.connect(self.update_crc_value)
         self.content_layout.addRow("导航信号状态 (4字节):", self.signal_status_edit)
 
         self.satellite_status_edit = QLineEdit()
@@ -132,6 +113,7 @@ class LocationSecurityForm(QWidget):
         self.satellite_status_edit.textChanged.connect(self.validate_hex_input)
         self.satellite_status_edit.textChanged.connect(self.update_message_content)
         self.satellite_status_edit.textChanged.connect(self.update_package_length)
+        self.satellite_status_edit.textChanged.connect(self.update_crc_value)
         self.content_layout.addRow("导航卫星状态 (8字节):", self.satellite_status_edit)
 
         self.reserved_edit = QLineEdit("0000000000000000")
@@ -167,6 +149,7 @@ class LocationSecurityForm(QWidget):
         self.nav_system_combo.currentIndexChanged.connect(self.update_package_length)
         self.nav_system_combo.currentIndexChanged.connect(self.update_message_type_options)
         self.nav_system_combo.currentIndexChanged.connect(self.update_nav_time_fields)  # 新增：导航系统变化时更新时间
+        self.nav_system_combo.currentIndexChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("导航系统标识 (1字节):", self.nav_system_combo)
         
         self.verification_count_edit = QLineEdit("01")
@@ -175,6 +158,7 @@ class LocationSecurityForm(QWidget):
         self.verification_count_edit.textChanged.connect(self.validate_hex_input)
         self.verification_count_edit.textChanged.connect(self.update_message_content)
         self.verification_count_edit.textChanged.connect(self.update_package_length)
+        self.verification_count_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("电文验证信息数N (1字节):", self.verification_count_edit)
         
         self.satellite_number_edit = QLineEdit("01")
@@ -182,12 +166,14 @@ class LocationSecurityForm(QWidget):
         self.satellite_number_edit.textChanged.connect(self.validate_hex_input)
         self.satellite_number_edit.textChanged.connect(self.update_message_content)
         self.satellite_number_edit.textChanged.connect(self.update_package_length)
+        self.satellite_number_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("卫星号 (1字节):", self.satellite_number_edit)
         
         self.nav_message_type_combo = QComboBox()
         self.update_message_type_options()
         self.nav_message_type_combo.currentIndexChanged.connect(self.update_message_content)
         self.nav_message_type_combo.currentIndexChanged.connect(self.update_package_length)
+        self.nav_message_type_combo.currentIndexChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("电文类型 (1字节):", self.nav_message_type_combo)
         
         self.ref_time_edit = QLineEdit()
@@ -199,6 +185,12 @@ class LocationSecurityForm(QWidget):
         self.verification_word_edit.setReadOnly(True)
         self.verification_word_edit.setStyleSheet("background-color: #f0f0f0;")
         self.content_layout.addRow("电文验证字 (3字节):", self.verification_word_edit)
+        
+        # 创建CRC编辑框
+        self.crc_edit = QLineEdit()
+        self.crc_edit.setReadOnly(True)
+        self.crc_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("CRC-24Q校验值 (3字节):", self.crc_edit)
         
         self.update_nav_time_fields()
 
@@ -229,6 +221,7 @@ class LocationSecurityForm(QWidget):
         self.latitude_edit.textChanged.connect(self.validate_hex_input)
         self.latitude_edit.textChanged.connect(self.update_message_content)
         self.latitude_edit.textChanged.connect(self.update_package_length)
+        self.latitude_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰纬度 (4字节):", self.latitude_edit)
         
         self.longitude_edit = QLineEdit()
@@ -237,6 +230,7 @@ class LocationSecurityForm(QWidget):
         self.longitude_edit.textChanged.connect(self.validate_hex_input)
         self.longitude_edit.textChanged.connect(self.update_message_content)
         self.longitude_edit.textChanged.connect(self.update_package_length)
+        self.longitude_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰经度 (4字节):", self.longitude_edit)
         
         self.center_freq_edit = QLineEdit()
@@ -245,6 +239,7 @@ class LocationSecurityForm(QWidget):
         self.center_freq_edit.textChanged.connect(self.validate_hex_input)
         self.center_freq_edit.textChanged.connect(self.update_message_content)
         self.center_freq_edit.textChanged.connect(self.update_package_length)
+        self.center_freq_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰中心频率 (4字节):", self.center_freq_edit)
         
         self.bandwidth_edit = QLineEdit()
@@ -253,6 +248,7 @@ class LocationSecurityForm(QWidget):
         self.bandwidth_edit.textChanged.connect(self.validate_hex_input)
         self.bandwidth_edit.textChanged.connect(self.update_message_content)
         self.bandwidth_edit.textChanged.connect(self.update_package_length)
+        self.bandwidth_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰带宽 (2字节):", self.bandwidth_edit)
         
         self.interference_type_combo = QComboBox()
@@ -260,6 +256,7 @@ class LocationSecurityForm(QWidget):
             self.interference_type_combo.addItem(f"{code} - {desc}", code)
         self.interference_type_combo.currentIndexChanged.connect(self.update_message_content)
         self.interference_type_combo.currentIndexChanged.connect(self.update_package_length)
+        self.interference_type_combo.currentIndexChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰类型 (1字节):", self.interference_type_combo)
         
         self.intensity_edit = QLineEdit()
@@ -268,88 +265,153 @@ class LocationSecurityForm(QWidget):
         self.intensity_edit.textChanged.connect(self.validate_hex_input)
         self.intensity_edit.textChanged.connect(self.update_message_content)
         self.intensity_edit.textChanged.connect(self.update_package_length)
+        self.intensity_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰强度 (1字节):", self.intensity_edit)
         
         self.confidence_edit = QLineEdit()
         self.confidence_edit.setMaxLength(2)
-        self.confidence_edit.setPlaceholderText("2位十六进制数")
-        hex_validator = QRegExpValidator(QRegExp("[0-9A-Fa-f]{0,2}"))
-        self.confidence_edit.setValidator(hex_validator)
+        self.confidence_edit.setPlaceholderText("1字节十六进制，不足高位补0")
         self.confidence_edit.textChanged.connect(self.validate_hex_input)
         self.confidence_edit.textChanged.connect(self.update_message_content)
         self.confidence_edit.textChanged.connect(self.update_package_length)
+        self.confidence_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("压制干扰置信度 (1字节):", self.confidence_edit)
+        
+        # 创建CRC编辑框
+        self.crc_edit = QLineEdit()
+        self.crc_edit.setReadOnly(True)
+        self.crc_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("CRC-24Q校验值 (3字节):", self.crc_edit)
 
     def create_spoofing_warning_fields(self):
         """创建欺骗干扰告警信息的字段"""
         self.clear_content_layout()
         
-        # BDS参考周计数
         self.week_edit = QLineEdit()
         self.week_edit.setText(f"{self.initial_bds_week:04X}")
         self.week_edit.setReadOnly(True)
         self.week_edit.setStyleSheet("background-color: #f0f0f0;")
         self.content_layout.addRow("BDS参考周计数 (2字节):", self.week_edit)
         
-        # BDS参考周内秒
         self.second_edit = QLineEdit()
         self.second_edit.setText(f"{self.initial_bds_second:08X}")
         self.second_edit.setReadOnly(True)
         self.second_edit.setStyleSheet("background-color: #f0f0f0;")
         self.content_layout.addRow("BDS参考周内秒 (4字节):", self.second_edit)
         
-        # 欺骗干扰数目m
         self.spoofing_count_edit = QLineEdit("01")
         self.spoofing_count_edit.setReadOnly(True)
         self.spoofing_count_edit.setStyleSheet("background-color: #f0f0f0;")
         self.content_layout.addRow("欺骗干扰数目m (1字节):", self.spoofing_count_edit)
         
-        # 欺骗干扰纬度
         self.latitude_edit = QLineEdit()
         self.latitude_edit.setMaxLength(8)
         self.latitude_edit.setPlaceholderText("4字节十六进制，不足高位补0")
         self.latitude_edit.textChanged.connect(self.validate_hex_input)
         self.latitude_edit.textChanged.connect(self.update_message_content)
         self.latitude_edit.textChanged.connect(self.update_package_length)
+        self.latitude_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("欺骗干扰纬度 (4字节):", self.latitude_edit)
         
-        # 欺骗干扰经度
         self.longitude_edit = QLineEdit()
         self.longitude_edit.setMaxLength(8)
         self.longitude_edit.setPlaceholderText("4字节十六进制，不足高位补0")
         self.longitude_edit.textChanged.connect(self.validate_hex_input)
         self.longitude_edit.textChanged.connect(self.update_message_content)
         self.longitude_edit.textChanged.connect(self.update_package_length)
+        self.longitude_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("欺骗干扰经度 (4字节):", self.longitude_edit)
         
-        # 欺骗干扰有效距离
         self.effective_distance_edit = QLineEdit()
         self.effective_distance_edit.setMaxLength(2)
         self.effective_distance_edit.setPlaceholderText("1字节十六进制，不足高位补0")
         self.effective_distance_edit.textChanged.connect(self.validate_hex_input)
         self.effective_distance_edit.textChanged.connect(self.update_message_content)
         self.effective_distance_edit.textChanged.connect(self.update_package_length)
+        self.effective_distance_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("欺骗干扰有效距离 (1字节):", self.effective_distance_edit)
         
-        # 欺骗干扰的卫星导航信号
         self.nav_system_combo = QComboBox()
         for code, desc in self.protocol.NAV_SYSTEM_OPTIONS.items():
             self.nav_system_combo.addItem(f"0x{code:02X} - {desc}", code)
         self.nav_system_combo.setCurrentText("0x14 - BDS-B3I")  # 默认BDS
         self.nav_system_combo.currentIndexChanged.connect(self.update_message_content)
         self.nav_system_combo.currentIndexChanged.connect(self.update_package_length)
+        self.nav_system_combo.currentIndexChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("欺骗干扰的卫星导航信号 (1字节):", self.nav_system_combo)
         
-        # 欺骗干扰置信度
         self.confidence_edit = QLineEdit()
         self.confidence_edit.setMaxLength(2)
-        self.confidence_edit.setPlaceholderText("2位十六进制数")
-        hex_validator = QRegExpValidator(QRegExp("[0-9A-Fa-f]{0,2}"))
-        self.confidence_edit.setValidator(hex_validator)
+        self.confidence_edit.setPlaceholderText("1字节十六进制，不足高位补0")
         self.confidence_edit.textChanged.connect(self.validate_hex_input)
         self.confidence_edit.textChanged.connect(self.update_message_content)
         self.confidence_edit.textChanged.connect(self.update_package_length)
+        self.confidence_edit.textChanged.connect(self.update_crc_value)  # 新增：更新CRC值
         self.content_layout.addRow("欺骗干扰置信度 (1字节):", self.confidence_edit)
+        
+        # 创建CRC编辑框
+        self.crc_edit = QLineEdit()
+        self.crc_edit.setReadOnly(True)
+        self.crc_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("CRC-24Q校验值 (3字节):", self.crc_edit)
+
+    def create_interaction_control_fields(self):
+        """创建信息交互控制指令的字段"""
+        self.clear_content_layout()
+        
+        # 目标消息类型
+        self.target_message_type_combo = QComboBox()
+        target_message_types = {
+            0x0101: "卫星导航系统服务状态信息",
+            0x0102: "卫星导航系统导航电文验证信息",
+            0x0103: "压制干扰告警信息",
+            0x0104: "欺骗干扰告警信息",
+            0x0106: "信息交互控制指令",
+            0x0201: "位置时间辅助信息"
+        }
+        for code, desc in target_message_types.items():
+            self.target_message_type_combo.addItem(f"0x{code:04X} - {desc}", code)
+        self.target_message_type_combo.currentIndexChanged.connect(self.update_message_content)
+        self.target_message_type_combo.currentIndexChanged.connect(self.update_package_length)
+        self.target_message_type_combo.currentIndexChanged.connect(self.update_crc_value)
+        self.content_layout.addRow("目标消息类型 (2字节):", self.target_message_type_combo)
+        
+        # 播发模式
+        self.broadcast_mode_combo = QComboBox()
+        for code, desc in self.protocol.BROADCAST_MODE_OPTIONS.items():
+            self.broadcast_mode_combo.addItem(f"0x{code:02X} - {desc}", code)
+        self.broadcast_mode_combo.currentIndexChanged.connect(self.update_message_content)
+        self.broadcast_mode_combo.currentIndexChanged.connect(self.update_package_length)
+        self.broadcast_mode_combo.currentIndexChanged.connect(self.update_crc_value)
+        self.content_layout.addRow("播发模式 (1字节):", self.broadcast_mode_combo)
+        
+        # 间隔时间
+        self.interval_time_edit = QLineEdit()
+        self.interval_time_edit.setMaxLength(2)
+        self.interval_time_edit.setPlaceholderText("1字节十六进制，不足高位补0")
+        self.interval_time_edit.textChanged.connect(self.validate_hex_input)
+        self.interval_time_edit.textChanged.connect(self.update_message_content)
+        self.interval_time_edit.textChanged.connect(self.update_package_length)
+        self.interval_time_edit.textChanged.connect(self.update_crc_value)
+        self.content_layout.addRow("间隔时间 (1字节，单位:10秒):", self.interval_time_edit)
+        
+        # 偏移时间
+        self.offset_time_edit = QLineEdit()
+        self.offset_time_edit.setMaxLength(2)
+        self.offset_time_edit.setPlaceholderText("1字节十六进制，不足高位补0")
+        self.offset_time_edit.textChanged.connect(self.validate_hex_input)
+        self.offset_time_edit.textChanged.connect(self.update_message_content)
+        self.offset_time_edit.textChanged.connect(self.update_package_length)
+        self.offset_time_edit.textChanged.connect(self.update_crc_value)
+        self.content_layout.addRow("偏移时间 (1字节，单位:10秒):", self.offset_time_edit)
+        
+        # 创建CRC编辑框
+        self.crc_edit = QLineEdit()
+        self.crc_edit.setReadOnly(True)
+        self.crc_edit.setStyleSheet("background-color: #f0f0f0;")
+        self.content_layout.addRow("CRC-24Q校验值 (3字节):", self.crc_edit)
+
+    # BDS星历数据相关界面已移除
 
     def validate_confidence(self):
         """验证置信度输入是否为有效的十六进制数"""
@@ -417,6 +479,42 @@ class LocationSecurityForm(QWidget):
             else:
                 self.nav_message_type_combo.addItem("0x01 - 类型1", 0x01)
 
+    def on_message_type_changed(self, index):
+        """消息类型改变时更新内容区域"""
+        self.current_message_type = self.message_type_combo.currentData()
+        
+        # 根据消息类型显示不同的内容字段
+        if self.current_message_type == 0x0101:
+            self.create_satellite_nav_status_fields()
+        elif self.current_message_type == 0x0102:
+            self.create_nav_message_verification_fields()
+        elif self.current_message_type == 0x0103:
+            self.create_interference_warning_fields()
+        elif self.current_message_type == 0x0104:
+            self.create_spoofing_warning_fields()
+        elif self.current_message_type == 0x0105:
+            # 清空内容区域，显示提示
+            self.clear_content_layout()
+            self.content_layout.addRow(QLabel("模块干扰检测信息暂未实现"))
+            # 添加CRC编辑框
+            self.crc_edit = QLineEdit()
+            self.crc_edit.setReadOnly(True)
+            self.crc_edit.setStyleSheet("background-color: #f0f0f0;")
+            self.content_layout.addRow("CRC-24Q校验值 (3字节):", self.crc_edit)
+        elif self.current_message_type == 0x0106:
+            self.create_interaction_control_fields()
+        else:
+            # 清空内容区域，显示提示
+            self.clear_content_layout()
+            self.content_layout.addRow(QLabel("请选择有效的消息类型查看详细字段"))
+            # 添加CRC编辑框
+            self.crc_edit = QLineEdit()
+            self.crc_edit.setReadOnly(True)
+            self.crc_edit.setStyleSheet("background-color: #f0f0f0;")
+            self.content_layout.addRow("CRC-24Q校验值 (3字节):", self.crc_edit)
+        
+        self.update_package_length()
+
     def update_message_content(self):
         """更新消息内容"""
         if not hasattr(self, 'current_message_type'):
@@ -456,6 +554,18 @@ class LocationSecurityForm(QWidget):
                 'nav_system': self.nav_system_combo.currentData(),
                 'confidence': self.confidence_edit.text().zfill(2)
             }
+        elif self.current_message_type == 0x0105:
+            self.message_content = {}  # 暂无内容
+        elif self.current_message_type == 0x0106:
+            self.message_content = {
+                'target_message_type': self.target_message_type_combo.currentData(),
+                'broadcast_mode': self.broadcast_mode_combo.currentData(),
+                'interval_time': self.interval_time_edit.text().zfill(2),
+                'offset_time': self.offset_time_edit.text().zfill(2)
+            }
+        elif self.current_message_type == 0x0202:
+            # 0x0202消息类型已移除
+            self.message_content = {}
 
 
     def send_data(self):
@@ -496,6 +606,44 @@ class LocationSecurityForm(QWidget):
                     'nav_system': self.nav_system_combo.currentData(),
                     'confidence': self.confidence_edit.text().zfill(2)
                 }
+            elif self.current_message_type == 0x0106:
+                message_content = {
+                    'target_message_type': self.target_message_type_combo.currentData(),
+                    'broadcast_mode': self.broadcast_mode_combo.currentData(),
+                    'interval_time': self.interval_time_edit.text().zfill(2),
+                    'offset_time': self.offset_time_edit.text().zfill(2)
+                }
+            elif self.current_message_type == 0x0202: # BDS星历辅助信息
+                message_content = {
+                    'satellite_id': self.satellite_id_edit.text().zfill(2),
+                    'bds_week': self.bds_week_edit.text().zfill(4),
+                    'bds_urai': self.bds_urai_edit.text().zfill(1),
+                    'bds_idot': self.bds_idot_edit.text().zfill(4),
+                    'bds_aode': self.bds_aode_edit.text().zfill(2),
+                    'bds_toc': self.bds_toc_edit.text().zfill(5),
+                    'bds_a2': self.bds_a2_edit.text().zfill(3),
+                    'bds_a1': self.bds_a1_edit.text().zfill(6),
+                    'bds_a0': self.bds_a0_edit.text().zfill(6),
+                    'bds_aodc': self.bds_aodc_edit.text().zfill(2),
+                    'bds_crs': self.bds_crs_edit.text().zfill(5),
+                    'bds_delta_n': self.bds_delta_n_edit.text().zfill(4),
+                    'bds_m0': self.bds_m0_edit.text().zfill(8),
+                    'bds_cuc': self.bds_cuc_edit.text().zfill(5),
+                    'bds_e': self.bds_e_edit.text().zfill(8),
+                    'bds_cus': self.bds_cus_edit.text().zfill(5),
+                    'bds_root_a': self.bds_root_a_edit.text().zfill(8),
+                    'bds_toe': self.bds_toe_edit.text().zfill(5),
+                    'bds_cic': self.bds_cic_edit.text().zfill(5),
+                    'bds_omega0': self.bds_omega0_edit.text().zfill(8),
+                    'bds_cis': self.bds_cis_edit.text().zfill(5),
+                    'bds_i0': self.bds_i0_edit.text().zfill(8),
+                    'bds_crc': self.bds_crc_edit.text().zfill(5),
+                    'bds_omega': self.bds_omega_edit.text().zfill(8),
+                    'bds_omega_dot': self.bds_omega_dot_edit.text().zfill(6),
+                    'bds_tgd1': self.bds_tgd1_edit.text().zfill(3),
+                    'bds_tgd2': self.bds_tgd2_edit.text().zfill(3),
+                    'bds_health': self.bds_health_combo.currentData()
+                }
             else:
                 QMessageBox.warning(self, "错误", "不支持的消息类型")
                 return
@@ -519,17 +667,16 @@ class LocationSecurityForm(QWidget):
         if not hasattr(self, 'crc_edit'):
             return
             
-        if self.current_message_type == 0x0101:
-            # 收集当前内容
-            self.update_message_content()
-            # 序列化数据以获取包含CRC的完整数据包
-            data_hex = self.protocol.serialize(self.current_message_type, self.message_content)
-            # 提取CRC部分（最后6个字符，3字节=6个十六进制字符）
-            if len(data_hex) >= 6:
-                crc_hex = data_hex[-6:]
-                self.crc_edit.setText(crc_hex)
-            else:
-                self.crc_edit.setText("")
+        # 收集当前内容
+        self.update_message_content()
+        # 序列化数据以获取包含CRC的完整数据包
+        data_hex = self.protocol.serialize(self.current_message_type, self.message_content)
+        # 提取CRC部分（最后6个字符，3字节=6个十六进制字符）
+        if len(data_hex) >= 6:
+            crc_hex = data_hex[-6:]
+            self.crc_edit.setText(crc_hex)
+        else:
+            self.crc_edit.setText("")
 
     def update_package_length(self):
         """动态更新包长度显示"""
@@ -546,6 +693,5 @@ class LocationSecurityForm(QWidget):
         )
         self.package_length_edit.setText(f"{package_length:04X}")
         
-        # 只有0x0101类型需要更新CRC值
-        if self.current_message_type == 0x0101:
-            self.update_crc_value()
+        # 更新CRC值
+        self.update_crc_value()

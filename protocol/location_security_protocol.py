@@ -53,9 +53,22 @@ class LocationSecurityProtocol:
         3: "其他干扰"
     }
     
+    # 播发模式选项
+    BROADCAST_MODE_OPTIONS = {
+        0x00: "停止播发",
+        0x01: "单次播发",
+        0x02: "条件触发播发",
+        0x03: "周期播发"
+    }
+    
+    # BDS卫星健康状态选项
+    BDS_HEALTH_OPTIONS = {
+        0: "健康",
+        1: "不健康"
+    }
+    
     def __init__(self):
-        self.message_type = 0x0101  # 默认消息类型
-        self.message_content = {}
+        self.message_type = 0x0101  # 默认为卫星导航系统服务状态信息
         
     def set_message_type(self, message_type):
         """设置消息类型"""
@@ -174,8 +187,8 @@ class LocationSecurityProtocol:
                 bytes.fromhex(message_content.get('verification_word', 'FFFFFF'))  # 电文验证字 (3字节)
             )
             
-            # 计算包长度（不包含CRC）
-            package_length = header_length + len(content)
+            # 计算包长度（包含CRC）
+            package_length = header_length + len(content) + 3
         elif message_type == 0x0103:
             # 获取BDS周计数和周计秒
             week, second = self._get_bds_week_and_second()
@@ -195,8 +208,8 @@ class LocationSecurityProtocol:
                 int(message_content.get('confidence', '00').zfill(2), 16)               # 压制干扰置信度 (1字节)
             )
             
-            # 计算包长度（不包含CRC）
-            package_length = header_length + len(content)
+            # 计算包长度（包含CRC）
+            package_length = header_length + len(content) + 3
         elif message_type == 0x0104:
             # 获取BDS周计数和周计秒
             week, second = self._get_bds_week_and_second()
@@ -214,11 +227,24 @@ class LocationSecurityProtocol:
                 int(message_content.get('confidence', '00').zfill(2), 16)               # 欺骗干扰置信度 (1字节)
             )
             
-            # 计算包长度（不包含CRC）
-            package_length = header_length + len(content)
+            # 计算包长度（包含CRC）
+            package_length = header_length + len(content) + 3
+        elif message_type == 0x0106:
+            # 打包信息交互控制指令
+            content = struct.pack(
+                '!H B B B',
+                int(message_content.get('target_message_type', 0x0101)),  # 目标消息类型 (2字节)
+                int(message_content.get('broadcast_mode', 0x00)),         # 播发模式 (1字节)
+                int(message_content.get('interval_time', '00').zfill(2), 16),  # 间隔时间 (1字节)
+                int(message_content.get('offset_time', '00').zfill(2), 16)     # 偏移时间 (1字节)
+            )
+            
+            # 计算包长度（包含CRC）
+            package_length = header_length + len(content) + 3
+        # 0x0202消息类型已移除
         else:
             content = b''
-            package_length = header_length
+            package_length = header_length + 3  # 包含CRC长度
         
         # 打包固定头部
         header = struct.pack(
@@ -232,10 +258,9 @@ class LocationSecurityProtocol:
         # 组合完整数据包
         full_package = header + content
         
-        # 只有0x0101类型需要添加CRC
-        if message_type == 0x0101:
-            crc_bytes = self._calculate_crc24q(full_package)
-            full_package += crc_bytes
+        # 为所有消息类型添加CRC
+        crc_bytes = self._calculate_crc24q(full_package)
+        full_package += crc_bytes
         
         # 返回16进制字符串表示
         return full_package.hex().upper()
@@ -271,7 +296,7 @@ class LocationSecurityProtocol:
                 bytes.fromhex(content.get('ref_time', '000000')),
                 bytes.fromhex(content.get('verification_word', 'FFFFFF'))
             )
-            return header_length + len(content_bytes)  # 不加CRC
+            return header_length + len(content_bytes) + 3  # +3字节CRC
         elif message_type == 0x0103:
             content_bytes = struct.pack(
                 '!H I B 4s 4s 4s H B B B',
@@ -284,9 +309,9 @@ class LocationSecurityProtocol:
                 int(content.get('bandwidth', '0000').zfill(4), 16),
                 int(content.get('interference_type', 1)),
                 int(content.get('intensity', '00').zfill(2), 16),
-                int(content.get('confidence', 50))
+                int(content.get('confidence', '00').zfill(2), 16)
             )
-            return header_length + len(content_bytes)  # 不加CRC
+            return header_length + len(content_bytes) + 3  # +3字节CRC
         elif message_type == 0x0104:
             content_bytes = struct.pack(
                 '!H I B 4s 4s B B B',
@@ -299,6 +324,16 @@ class LocationSecurityProtocol:
                 content.get('nav_system', 0x14),
                 int(content.get('confidence', '00').zfill(2), 16)
             )
-            return header_length + len(content_bytes)  # 不加CRC
+            return header_length + len(content_bytes) + 3  # +3字节CRC
+        elif message_type == 0x0106:
+            content_bytes = struct.pack(
+                '!H B B B',
+                int(content.get('target_message_type', 0x0101)),  # 目标消息类型 (2字节)
+                int(content.get('broadcast_mode', 0x00)),         # 播发模式 (1字节)
+                int(content.get('interval_time', '00').zfill(2), 16),  # 间隔时间 (1字节)
+                int(content.get('offset_time', '00').zfill(2), 16)     # 偏移时间 (1字节)
+            )
+            return header_length + len(content_bytes) + 3  # +3字节CRC
+        # 0x0202消息类型已移除
         else:
-            return header_length  # 其他消息类型只有头部
+            return header_length + 3  # 其他消息类型只有头部，但也包含CRC
