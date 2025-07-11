@@ -125,6 +125,12 @@ class AuxiliaryLocationForm(QWidget):
         scroll_widget = QWidget()
         scroll_layout = QFormLayout()
         
+        # 电文类型号（只读）
+        self.message_type_bits = QLineEdit()
+        self.message_type_bits.setReadOnly(True)
+        self.message_type_bits.setText("010000010010")  # 12位固定电文类型号
+        scroll_layout.addRow("电文类型号:", self.message_type_bits)
+        
         # BDS卫星ID
         self.bds_sat_id = QLineEdit()
         self.bds_sat_id.setPlaceholderText("输入二进制值（6位）")
@@ -366,17 +372,36 @@ class AuxiliaryLocationForm(QWidget):
             self.packet_length.setText(f"0x{self.protocol.PACKET_LENGTH_0202:02X}")
     
     def _parse_hex_input(self, text: str, max_bytes: int) -> int:
-        """解析十六进制输入，确保不超过指定字节数"""
+        """解析十六进制输入字符串
+        
+        Args:
+            text: 十六进制字符串（可以带0x前缀）
+            max_bytes: 最大字节数限制
+            
+        Returns:
+            int: 解析后的整数值
+        """
+        # 移除0x前缀和空白字符
+        text = text.lower().replace('0x', '').strip()
         if not text:
             return 0
-        text = text.strip().replace("0x", "")
-        try:
-            value = int(text, 16)
-            max_value = (1 << (max_bytes * 8)) - 1
-            return value & max_value
-        except ValueError:
+        return int(text, 16)
+
+    def _parse_binary_input(self, text: str) -> int:
+        """解析二进制输入字符串
+        
+        Args:
+            text: 二进制字符串（可以带0b前缀）
+            
+        Returns:
+            int: 解析后的整数值
+        """
+        # 移除0b前缀和空白字符
+        text = text.lower().replace('0b', '').strip()
+        if not text:
             return 0
-    
+        return int(text, 2)
+        
     def update_packet_length(self):
         """更新数据包长度显示"""
         try:
@@ -424,7 +449,7 @@ class AuxiliaryLocationForm(QWidget):
                 
             # 更新包长度显示
             packet_length = self.protocol._calculate_length()
-            self.packet_length.setText(str(packet_length))
+            self.packet_length.setText(f"0x{packet_length:02X}")  # 修改为十六进制格式显示
             
         except ValueError as e:
             # 输入验证失败时不更新包长度
@@ -444,34 +469,34 @@ class AuxiliaryLocationForm(QWidget):
                 self.protocol.time_error = self._parse_hex_input(self.time_error.text(), 2)
                 self.protocol.data_flag = self.data_flag.currentData()
             else:
-                # 更新0x0202消息类型的字段
-                self.protocol.bds_sat_id = self._parse_hex_input(self.bds_sat_id.text(), 1)
-                self.protocol.bds_week = self._parse_hex_input(self.bds_week.text(), 2)
-                self.protocol.bds_urai = self._parse_hex_input(self.bds_urai.text(), 1)
-                self.protocol.bds_idot = self._parse_hex_input(self.bds_idot.text(), 2)
-                self.protocol.bds_aode = self._parse_hex_input(self.bds_aode.text(), 1)
-                self.protocol.bds_toc = self._parse_hex_input(self.bds_toc.text(), 3)
-                self.protocol.bds_a2 = self._parse_hex_input(self.bds_a2.text(), 2)
-                self.protocol.bds_a1 = self._parse_hex_input(self.bds_a1.text(), 3)
-                self.protocol.bds_a0 = self._parse_hex_input(self.bds_a0.text(), 3)
-                self.protocol.bds_aodc = self._parse_hex_input(self.bds_aodc.text(), 1)
-                self.protocol.bds_crs = self._parse_hex_input(self.bds_crs.text(), 3)
-                self.protocol.bds_delta_n = self._parse_hex_input(self.bds_delta_n.text(), 2)
-                self.protocol.bds_m0 = self._parse_hex_input(self.bds_m0.text(), 4)
-                self.protocol.bds_cuc = self._parse_hex_input(self.bds_cuc.text(), 3)
-                self.protocol.bds_e = self._parse_hex_input(self.bds_e.text(), 4)
-                self.protocol.bds_cus = self._parse_hex_input(self.bds_cus.text(), 3)
-                self.protocol.bds_sqrt_a = self._parse_hex_input(self.bds_sqrt_a.text(), 4)
-                self.protocol.bds_toe = self._parse_hex_input(self.bds_toe.text(), 3)
-                self.protocol.bds_cic = self._parse_hex_input(self.bds_cic.text(), 3)
-                self.protocol.bds_omega0 = self._parse_hex_input(self.bds_omega0.text(), 4)
-                self.protocol.bds_cis = self._parse_hex_input(self.bds_cis.text(), 3)
-                self.protocol.bds_i0 = self._parse_hex_input(self.bds_i0.text(), 4)
-                self.protocol.bds_crc = self._parse_hex_input(self.bds_crc.text(), 3)
-                self.protocol.bds_omega = self._parse_hex_input(self.bds_omega.text(), 4)
-                self.protocol.bds_omega_dot = self._parse_hex_input(self.bds_omega_dot.text(), 3)
-                self.protocol.bds_tgd1 = self._parse_hex_input(self.bds_tgd1.text(), 2)
-                self.protocol.bds_tgd2 = self._parse_hex_input(self.bds_tgd2.text(), 2)
+                # 更新0x0202消息类型的字段（使用二进制输入）
+                self.protocol.bds_sat_id = self._parse_binary_input(self.bds_sat_id.text())
+                self.protocol.bds_week = self._parse_binary_input(self.bds_week.text())
+                self.protocol.bds_urai = self._parse_binary_input(self.bds_urai.text())
+                self.protocol.bds_idot = self._parse_binary_input(self.bds_idot.text())
+                self.protocol.bds_aode = self._parse_binary_input(self.bds_aode.text())
+                self.protocol.bds_toc = self._parse_binary_input(self.bds_toc.text())
+                self.protocol.bds_a2 = self._parse_binary_input(self.bds_a2.text())
+                self.protocol.bds_a1 = self._parse_binary_input(self.bds_a1.text())
+                self.protocol.bds_a0 = self._parse_binary_input(self.bds_a0.text())
+                self.protocol.bds_aodc = self._parse_binary_input(self.bds_aodc.text())
+                self.protocol.bds_crs = self._parse_binary_input(self.bds_crs.text())
+                self.protocol.bds_delta_n = self._parse_binary_input(self.bds_delta_n.text())
+                self.protocol.bds_m0 = self._parse_binary_input(self.bds_m0.text())
+                self.protocol.bds_cuc = self._parse_binary_input(self.bds_cuc.text())
+                self.protocol.bds_e = self._parse_binary_input(self.bds_e.text())
+                self.protocol.bds_cus = self._parse_binary_input(self.bds_cus.text())
+                self.protocol.bds_sqrt_a = self._parse_binary_input(self.bds_sqrt_a.text())
+                self.protocol.bds_toe = self._parse_binary_input(self.bds_toe.text())
+                self.protocol.bds_cic = self._parse_binary_input(self.bds_cic.text())
+                self.protocol.bds_omega0 = self._parse_binary_input(self.bds_omega0.text())
+                self.protocol.bds_cis = self._parse_binary_input(self.bds_cis.text())
+                self.protocol.bds_i0 = self._parse_binary_input(self.bds_i0.text())
+                self.protocol.bds_crc = self._parse_binary_input(self.bds_crc.text())
+                self.protocol.bds_omega = self._parse_binary_input(self.bds_omega.text())
+                self.protocol.bds_omega_dot = self._parse_binary_input(self.bds_omega_dot.text())
+                self.protocol.bds_tgd1 = self._parse_binary_input(self.bds_tgd1.text())
+                self.protocol.bds_tgd2 = self._parse_binary_input(self.bds_tgd2.text())
                 self.protocol.bds_health = self.bds_health_combo.currentData()
             
             # 序列化数据
@@ -503,34 +528,34 @@ class AuxiliaryLocationForm(QWidget):
                 self.protocol.time_error = self._parse_hex_input(self.time_error.text(), 2)
                 self.protocol.data_flag = self.data_flag.currentData()
             else:
-                # 更新0x0202消息类型的字段
-                self.protocol.bds_sat_id = self._parse_hex_input(self.bds_sat_id.text(), 1)
-                self.protocol.bds_week = self._parse_hex_input(self.bds_week.text(), 2)
-                self.protocol.bds_urai = self._parse_hex_input(self.bds_urai.text(), 1)
-                self.protocol.bds_idot = self._parse_hex_input(self.bds_idot.text(), 2)
-                self.protocol.bds_aode = self._parse_hex_input(self.bds_aode.text(), 1)
-                self.protocol.bds_toc = self._parse_hex_input(self.bds_toc.text(), 3)
-                self.protocol.bds_a2 = self._parse_hex_input(self.bds_a2.text(), 2)
-                self.protocol.bds_a1 = self._parse_hex_input(self.bds_a1.text(), 3)
-                self.protocol.bds_a0 = self._parse_hex_input(self.bds_a0.text(), 3)
-                self.protocol.bds_aodc = self._parse_hex_input(self.bds_aodc.text(), 1)
-                self.protocol.bds_crs = self._parse_hex_input(self.bds_crs.text(), 3)
-                self.protocol.bds_delta_n = self._parse_hex_input(self.bds_delta_n.text(), 2)
-                self.protocol.bds_m0 = self._parse_hex_input(self.bds_m0.text(), 4)
-                self.protocol.bds_cuc = self._parse_hex_input(self.bds_cuc.text(), 3)
-                self.protocol.bds_e = self._parse_hex_input(self.bds_e.text(), 4)
-                self.protocol.bds_cus = self._parse_hex_input(self.bds_cus.text(), 3)
-                self.protocol.bds_sqrt_a = self._parse_hex_input(self.bds_sqrt_a.text(), 4)
-                self.protocol.bds_toe = self._parse_hex_input(self.bds_toe.text(), 3)
-                self.protocol.bds_cic = self._parse_hex_input(self.bds_cic.text(), 3)
-                self.protocol.bds_omega0 = self._parse_hex_input(self.bds_omega0.text(), 4)
-                self.protocol.bds_cis = self._parse_hex_input(self.bds_cis.text(), 3)
-                self.protocol.bds_i0 = self._parse_hex_input(self.bds_i0.text(), 4)
-                self.protocol.bds_crc = self._parse_hex_input(self.bds_crc.text(), 3)
-                self.protocol.bds_omega = self._parse_hex_input(self.bds_omega.text(), 4)
-                self.protocol.bds_omega_dot = self._parse_hex_input(self.bds_omega_dot.text(), 3)
-                self.protocol.bds_tgd1 = self._parse_hex_input(self.bds_tgd1.text(), 2)
-                self.protocol.bds_tgd2 = self._parse_hex_input(self.bds_tgd2.text(), 2)
+                # 更新0x0202消息类型的字段（使用二进制输入）
+                self.protocol.bds_sat_id = self._parse_binary_input(self.bds_sat_id.text())
+                self.protocol.bds_week = self._parse_binary_input(self.bds_week.text())
+                self.protocol.bds_urai = self._parse_binary_input(self.bds_urai.text())
+                self.protocol.bds_idot = self._parse_binary_input(self.bds_idot.text())
+                self.protocol.bds_aode = self._parse_binary_input(self.bds_aode.text())
+                self.protocol.bds_toc = self._parse_binary_input(self.bds_toc.text())
+                self.protocol.bds_a2 = self._parse_binary_input(self.bds_a2.text())
+                self.protocol.bds_a1 = self._parse_binary_input(self.bds_a1.text())
+                self.protocol.bds_a0 = self._parse_binary_input(self.bds_a0.text())
+                self.protocol.bds_aodc = self._parse_binary_input(self.bds_aodc.text())
+                self.protocol.bds_crs = self._parse_binary_input(self.bds_crs.text())
+                self.protocol.bds_delta_n = self._parse_binary_input(self.bds_delta_n.text())
+                self.protocol.bds_m0 = self._parse_binary_input(self.bds_m0.text())
+                self.protocol.bds_cuc = self._parse_binary_input(self.bds_cuc.text())
+                self.protocol.bds_e = self._parse_binary_input(self.bds_e.text())
+                self.protocol.bds_cus = self._parse_binary_input(self.bds_cus.text())
+                self.protocol.bds_sqrt_a = self._parse_binary_input(self.bds_sqrt_a.text())
+                self.protocol.bds_toe = self._parse_binary_input(self.bds_toe.text())
+                self.protocol.bds_cic = self._parse_binary_input(self.bds_cic.text())
+                self.protocol.bds_omega0 = self._parse_binary_input(self.bds_omega0.text())
+                self.protocol.bds_cis = self._parse_binary_input(self.bds_cis.text())
+                self.protocol.bds_i0 = self._parse_binary_input(self.bds_i0.text())
+                self.protocol.bds_crc = self._parse_binary_input(self.bds_crc.text())
+                self.protocol.bds_omega = self._parse_binary_input(self.bds_omega.text())
+                self.protocol.bds_omega_dot = self._parse_binary_input(self.bds_omega_dot.text())
+                self.protocol.bds_tgd1 = self._parse_binary_input(self.bds_tgd1.text())
+                self.protocol.bds_tgd2 = self._parse_binary_input(self.bds_tgd2.text())
                 self.protocol.bds_health = self.bds_health_combo.currentData()
             
             # 序列化数据并发送
