@@ -281,31 +281,31 @@ class AuxiliaryLocationForm(QWidget):
         
         # BDS Crc
         self.bds_crc = QLineEdit()
-        self.bds_crc.setPlaceholderText("输入十六进制值（18位）")
+        self.bds_crc.setPlaceholderText("输入二进制值（18位）")
         self.bds_crc.textChanged.connect(self.update_packet_length)
         scroll_layout.addRow("BDS Crc:", self.bds_crc)
         
         # BDS ω
         self.bds_omega = QLineEdit()
-        self.bds_omega.setPlaceholderText("输入十六进制值（32位）")
+        self.bds_omega.setPlaceholderText("输入二进制值（32位）")
         self.bds_omega.textChanged.connect(self.update_packet_length)
         scroll_layout.addRow("BDS ω:", self.bds_omega)
         
         # BDS OMEGADOT
         self.bds_omega_dot = QLineEdit()
-        self.bds_omega_dot.setPlaceholderText("输入十六进制值（24位）")
+        self.bds_omega_dot.setPlaceholderText("输入二进制值（24位）")
         self.bds_omega_dot.textChanged.connect(self.update_packet_length)
         scroll_layout.addRow("BDS OMEGADOT:", self.bds_omega_dot)
         
         # BDS TGD1
         self.bds_tgd1 = QLineEdit()
-        self.bds_tgd1.setPlaceholderText("输入十六进制值（10位）")
+        self.bds_tgd1.setPlaceholderText("输入二进制值（10位）")
         self.bds_tgd1.textChanged.connect(self.update_packet_length)
         scroll_layout.addRow("BDS TGD1:", self.bds_tgd1)
         
         # BDS TGD2
         self.bds_tgd2 = QLineEdit()
-        self.bds_tgd2.setPlaceholderText("输入十六进制值（10位）")
+        self.bds_tgd2.setPlaceholderText("输入二进制值（10位）")
         self.bds_tgd2.textChanged.connect(self.update_packet_length)
         scroll_layout.addRow("BDS TGD2:", self.bds_tgd2)
         
