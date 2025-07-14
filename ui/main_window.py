@@ -10,7 +10,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("协议数据发送器")
         
         # 设置窗口大小
-        self.resize(800, 1500)  # 使用更合理的初始大小
+        self.resize(800, 1600)  # 使用更合理的初始大小
         
         # 将窗口移动到屏幕中央
         self.center_window()
