@@ -1,63 +1,46 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QComboBox, 
-                           QStackedWidget, QDesktopWidget)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMainWindow, QTabWidget, QWidget, QVBoxLayout,QDesktopWidget
 from .location_security_form import LocationSecurityForm
 from .auxiliary_location_form import AuxiliaryLocationForm
+from .data_receiver_form import DataReceiverForm
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("协议数据发送器")
+        self.setWindowTitle('协议数据验证工具')
+        self.init_ui()
+        self.center()
         
-        # 设置窗口大小
-        self.resize(800, 1600)  # 使用更合理的初始大小
-        
-        # 将窗口移动到屏幕中央
-        self.center_window()
-        
-        # 创建中心部件和布局
+    def init_ui(self):
+        # 创建中心部件
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
         
-        # 创建协议选择下拉框
-        self.protocol_selector = QComboBox()
-        self.protocol_selector.addItem("定位安全性数据包", "location_security")
-        self.protocol_selector.addItem("辅助定位数据包", "auxiliary_location")
-        self.protocol_selector.currentIndexChanged.connect(self.on_protocol_changed)
-        layout.addWidget(self.protocol_selector)
+        # 创建布局
+        layout = QVBoxLayout()
+        central_widget.setLayout(layout)
         
-        # 创建堆叠窗口用于显示不同协议的表单
-        self.stacked_widget = QStackedWidget()
-        layout.addWidget(self.stacked_widget)
+        # 创建选项卡部件
+        tab_widget = QTabWidget()
         
-        # 创建不同协议的表单
-        self.forms = {
-            "location_security": LocationSecurityForm(),
-            "auxiliary_location": AuxiliaryLocationForm()
-        }
+        # 添加定位安全数据包选项卡
+        location_security_form = LocationSecurityForm()
+        tab_widget.addTab(location_security_form, "定位安全数据包")
         
-        # 将表单添加到堆叠窗口
-        for form in self.forms.values():
-            self.stacked_widget.addWidget(form)
+        # 添加辅助定位数据包选项卡
+        auxiliary_location_form = AuxiliaryLocationForm()
+        tab_widget.addTab(auxiliary_location_form, "辅助定位数据包")
         
-        # 默认显示第一个表单
-        self.stacked_widget.setCurrentIndex(0)
+        # 添加数据接收选项卡
+        data_receiver_form = DataReceiverForm()
+        tab_widget.addTab(data_receiver_form, "数据解析")
         
-    def center_window(self):
-        """将窗口移动到屏幕中央"""
-        # 获取屏幕几何信息
-        screen = QDesktopWidget().screenGeometry()
-        # 获取窗口几何信息
-        window = self.geometry()
-        # 计算中心位置
-        x = (screen.width() - window.width()) // 2
-        y = (screen.height() - window.height()) // 2
-        # 移动窗口
-        self.move(x, y)
-    
-    def on_protocol_changed(self, index):
-        # 获取选中的协议类型
-        protocol_type = self.protocol_selector.itemData(index)
-        # 显示对应的表单
-        self.stacked_widget.setCurrentWidget(self.forms[protocol_type])
+        layout.addWidget(tab_widget)
+        
+        # 设置窗口大小
+        self.setGeometry(100, 100, 800, 1600)
+
+    def center(self):
+        frame_geom = self.frameGeometry()
+        screen_center = QDesktopWidget().availableGeometry().center()
+        frame_geom.moveCenter(screen_center)
+        self.move(frame_geom.topLeft())
