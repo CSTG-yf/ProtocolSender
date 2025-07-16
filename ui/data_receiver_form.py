@@ -248,7 +248,128 @@ class DataReceiverForm(QWidget):
                     
             elif msg_type == 0x0105:
                 # 解析模块干扰检测信息
-                result += f"原始数据: {' '.join(f'{b:02X}' for b in content_bytes)}"
+                if len(content_bytes) >= 2:
+                    # 1. 定位状态
+                    pos_status = int.from_bytes(content_bytes[0:2], 'big')
+                    result += f"定位状态: 0x{pos_status:04X}\n"
+                    
+                    # 2. 参考周计数
+                    if len(content_bytes) >= 4:
+                        week = int.from_bytes(content_bytes[2:4], 'big')
+                        result += f"参考周计数: {week}\n"
+                    
+                    # 3. 参考周内秒
+                    if len(content_bytes) >= 8:
+                        second = int.from_bytes(content_bytes[4:8], 'big')
+                        result += f"参考周内秒: {second}s\n"
+                    
+                    # 4-5. 纬度和经度
+                    if len(content_bytes) >= 16:
+                        latitude = int.from_bytes(content_bytes[8:12], 'big', signed=True)
+                        longitude = int.from_bytes(content_bytes[12:16], 'big', signed=True)
+                        result += f"纬度: {latitude}\n"
+                        result += f"经度: {longitude}\n"
+                    
+                    # 6. 大地高
+                    if len(content_bytes) >= 20:
+                        height = int.from_bytes(content_bytes[16:20], 'big', signed=True)
+                        result += f"大地高: {height}\n"
+                    
+                    # 7-9. 速度
+                    if len(content_bytes) >= 32:
+                        v_n = int.from_bytes(content_bytes[20:24], 'big', signed=True)
+                        v_e = int.from_bytes(content_bytes[24:28], 'big', signed=True)
+                        v_u = int.from_bytes(content_bytes[28:32], 'big', signed=True)
+                        result += f"水平速度: {v_n}\n"
+                        result += f"垂直速度: {v_e}\n"
+                        result += f"运动航向: {v_u}\n"
+                    
+                    # 10. 水平精度因子
+                    if len(content_bytes) >= 34:
+                        hdop = int.from_bytes(content_bytes[32:34], 'big')
+                        result += f"水平精度因子: {hdop}\n"
+                    
+                    # 11. 参与定位导航信号
+                    if len(content_bytes) >= 38:
+                        nav_signal = int.from_bytes(content_bytes[34:38], 'big')
+                        result += f"参与定位导航信号: 0x{nav_signal:08X}\n"
+                    
+                    # 12-13. 卫星数
+                    if len(content_bytes) >= 40:
+                        total_sats = content_bytes[38]
+                        north_sats = content_bytes[39]
+                        result += f"参与定位卫星总数: {total_sats}\n"
+                        result += f"参与定位北斗卫星数: {north_sats}\n"
+                    
+                    # 14-16. RAIM监测
+                    raim_k = 0  # 默认值
+                    if len(content_bytes) >= 41:
+                        raim_k = content_bytes[40]
+                        result += f"RAIM监测发现的故障信号数k: {raim_k}"
+                        if raim_k <= 0:
+                            result += " (无故障)\n"
+                        else:
+                            result += "\n"
+                            # 计算RAIM监测数据的起始位置
+                            raim_start = 41
+                            # 循环解析k组RAIM监测数据
+                            for i in range(raim_k):
+                                if len(content_bytes) >= raim_start + i*2 + 2:
+                                    raim_prn = content_bytes[raim_start + i*2]
+                                    raim_id = content_bytes[raim_start + i*2 + 1]
+                                    result += f"RAIM监测发现的故障信号{i+1}的卫星编号: {raim_prn}\n"
+                                    result += f"RAIM监测发现的故障信号{i+1}的信号标识: {raim_id}\n"
+                    else:
+                        result += "RAIM监测数据长度不足\n"
+                    
+                    # 计算压制干扰数据的起始位置（在RAIM数据之后）
+                    jam_start = 41 + raim_k * 2
+                    
+                    # 18-22. 压制干扰
+                    jam_n = 0  # 默认值
+                    if len(content_bytes) >= jam_start + 1:
+                        jam_n = content_bytes[jam_start]
+                        result += f"压制干扰数目n: {jam_n}"
+                        if jam_n <= 0:
+                            result += " (无压制干扰)\n"
+                        else:
+                            result += "\n"
+                            # 循环解析n组压制干扰数据
+                            for i in range(jam_n):
+                                if len(content_bytes) >= jam_start + 1 + i*9 + 9:
+                                    jam_freq = int.from_bytes(content_bytes[jam_start + 1 + i*9:jam_start + 5 + i*9], 'big')
+                                    jam_bw = int.from_bytes(content_bytes[jam_start + 5 + i*9:jam_start + 7 + i*9], 'big')
+                                    jam_type = content_bytes[jam_start + 7 + i*9]
+                                    jam_strength = content_bytes[jam_start + 8 + i*9]
+                                    
+                                    result += f"压制干扰{i+1}中心频率: {jam_freq}\n"
+                                    result += f"压制干扰{i+1}带宽: {jam_bw}\n"
+                                    result += f"压制干扰{i+1}类型: {jam_type}\n"
+                                    result += f"压制干扰{i+1}强度: {jam_strength}\n"
+                    else:
+                        result += "压制干扰数据长度不足\n"
+                    
+                    # 计算欺骗干扰数据的起始位置（在压制干扰数据之后）
+                    spoof_start = jam_start + 1 + jam_n * 9
+                    
+                    # 24-25. 欺骗干扰
+                    if len(content_bytes) >= spoof_start + 1:
+                        spoof_m = content_bytes[spoof_start]
+                        result += f"欺骗干扰数目m: {spoof_m}"
+                        if spoof_m <= 0:
+                            result += " (无欺骗干扰)\n"
+                        else:
+                            result += "\n"
+                            # 循环解析m组欺骗干扰数据
+                            for i in range(spoof_m):
+                                if len(content_bytes) >= spoof_start + 1 + i*2 + 1:
+                                    spoof_id = content_bytes[spoof_start + 1 + i*2]
+                                    result += f"欺骗干扰{i+1}的卫星导航信号: 0x{spoof_id:02X}\n"
+                    else:
+                        result += "欺骗干扰数据长度不足\n"
+                
+                else:
+                    result += "数据长度不足，无法解析完整字段"
                 
             elif msg_type == 0x0106:
                 # 解析信息交互控制指令
