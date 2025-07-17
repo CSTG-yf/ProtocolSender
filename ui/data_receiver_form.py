@@ -1,20 +1,70 @@
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox, 
                             QVBoxLayout, QLabel, QTextEdit, QRadioButton,
-                            QButtonGroup, QHBoxLayout)
-from PyQt5.QtCore import Qt, QRegExp
+                            QButtonGroup, QHBoxLayout, QPushButton)
+from PyQt5.QtCore import Qt, QRegExp, QThread, pyqtSignal
 from PyQt5.QtGui import QRegExpValidator
 from protocol.location_security_protocol import LocationSecurityProtocol
 from protocol.auxiliary_location_protocol import AuxiliaryLocationProtocol
+from .serial_port_widget import SerialPortWidget
+from services.data_sender import DataSender
+import serial
+import time
+
+class SerialReceiveThread(QThread):
+    data_received = pyqtSignal(bytes)
+    def __init__(self, port, baudrate, parent=None):
+        super().__init__(parent)
+        self.port = port
+        self.baudrate = baudrate
+        self._running = True
+    def run(self):
+        try:
+            with serial.Serial(self.port, self.baudrate, timeout=0.2) as ser:
+                buffer = b''
+                while self._running:
+                    data = ser.read(512)
+                    if data:
+                        buffer += data
+                        # 尝试按包头和长度分包（假设包头4字节+1+2+2=9字节，包长在第5-7字节）
+                        while len(buffer) >= 9:
+                            length = int.from_bytes(buffer[5:7], 'big')
+                            if len(buffer) < length:
+                                break
+                            packet = buffer[:length]
+                            msg_type = int.from_bytes(packet[7:9], 'big')
+                            if msg_type in (0x0105, 0x0106):
+                                self.data_received.emit(packet)
+                            buffer = buffer[length:]
+                    else:
+                        time.sleep(0.05)
+        except Exception as e:
+            pass
+    def stop(self):
+        self._running = False
+        self.wait()
 
 class DataReceiverForm(QWidget):
     def __init__(self):
         super().__init__()
         self.location_security_protocol = LocationSecurityProtocol()
         self.auxiliary_location_protocol = AuxiliaryLocationProtocol()
+        self.serial_port_widget = SerialPortWidget()
+        self.receive_thread = None
         self.init_ui()
         
     def init_ui(self):
         layout = QVBoxLayout()
+        
+        # 串口选择控件
+        layout.addWidget(self.serial_port_widget)
+        # 串口接收按钮
+        self.receive_button = QPushButton("开始串口接收并解析数据")
+        self.stop_button = QPushButton("停止接收")
+        self.stop_button.setEnabled(False)
+        self.receive_button.clicked.connect(self.start_serial_receive)
+        self.stop_button.clicked.connect(self.stop_serial_receive)
+        layout.addWidget(self.receive_button)
+        layout.addWidget(self.stop_button)
         
         # 创建协议选择区域
         protocol_layout = QHBoxLayout()
@@ -424,3 +474,31 @@ class DataReceiverForm(QWidget):
             
         except Exception as e:
             return f"内容解析错误: {str(e)}" 
+
+    def handle_serial_data(self, data):
+        # 只显示最新的0x0105/0x0106类型数据
+        if self.security_radio.isChecked():
+            self.parse_security_packet(data)
+        else:
+            self.parse_auxiliary_packet(data)
+
+    def start_serial_receive(self):
+        port = self.serial_port_widget.get_selected_port()
+        baudrate = self.serial_port_widget.get_selected_baudrate()
+        if not port:
+            self.result_text.setText("请选择串口！")
+            return
+        self.result_text.setText("正在接收... 只显示0x0105/0x0106类型数据")
+        self.receive_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
+        self.receive_thread = SerialReceiveThread(port, baudrate)
+        self.receive_thread.data_received.connect(self.handle_serial_data)
+        self.receive_thread.start()
+
+    def stop_serial_receive(self):
+        if self.receive_thread:
+            self.receive_thread.stop()
+            self.receive_thread = None
+        self.receive_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+        self.result_text.append("已停止接收") 

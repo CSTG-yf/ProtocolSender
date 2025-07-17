@@ -5,11 +5,14 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QRegExpValidator
 from protocol.auxiliary_location_protocol import AuxiliaryLocationProtocol
 from services.data_sender import DataSender
+from .serial_port_widget import SerialPortWidget
 
 class AuxiliaryLocationForm(QWidget):
     def __init__(self):
         super().__init__()
         self.protocol = AuxiliaryLocationProtocol()
+        self.serial_port_widget = SerialPortWidget()
+        self.data_sender = None  # 延后初始化，发送时用
         self.init_ui()
         
     def init_ui(self):
@@ -17,6 +20,9 @@ class AuxiliaryLocationForm(QWidget):
         
         # 创建表单布局
         form_layout = QFormLayout()
+        
+        # 串口选择控件
+        form_layout.addRow("串口：", self.serial_port_widget)
         
         # 添加协议标识符显示（只读）
         self.protocol_id = QLineEdit()
@@ -560,9 +566,14 @@ class AuxiliaryLocationForm(QWidget):
             
             # 序列化数据并发送
             data = self.protocol.serialize()
-            data_sender = DataSender()
             hex_data = ''.join(f"{b:02X}" for b in data)
-            data_sender.send_data(hex_data)
+            port = self.serial_port_widget.get_selected_port()
+            baudrate = self.serial_port_widget.get_selected_baudrate()
+            if not port:
+                self.preview_label.setText("请选择串口！")
+                return
+            self.data_sender = DataSender(port=port, baudrate=baudrate)
+            self.data_sender.send_data(hex_data)
             
             self.preview_label.setText("数据发送成功！")
             

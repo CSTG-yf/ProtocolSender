@@ -4,12 +4,14 @@ from PyQt5.QtGui import QIntValidator, QRegExpValidator
 import re
 from services.data_sender import DataSender
 from protocol.location_security_protocol import LocationSecurityProtocol
+from .serial_port_widget import SerialPortWidget
 
 class LocationSecurityForm(QWidget):
     def __init__(self, parent=None):
         super().__init__()
         self.protocol = LocationSecurityProtocol()
-        self.data_sender = DataSender()
+        self.serial_port_widget = SerialPortWidget()
+        self.data_sender = None  # 延后初始化，发送时用
         self.current_message_type = 0x0101  # Default message type
         self.message_content = {}  # Initialize message_content
         self.initial_bds_week, self.initial_bds_second = self.protocol._get_bds_week_and_second()
@@ -19,6 +21,9 @@ class LocationSecurityForm(QWidget):
         layout = QVBoxLayout()
         form_layout = QFormLayout()
         form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        # 串口选择控件
+        form_layout.addRow("串口：", self.serial_port_widget)
 
         self.identifier_edit = QLineEdit()
         self.identifier_edit.setText(f"{self.protocol.FIXED_IDENTIFIER:08X}")
@@ -554,8 +559,6 @@ class LocationSecurityForm(QWidget):
                 'nav_system': self.nav_system_combo.currentData(),
                 'confidence': self.confidence_edit.text().zfill(2)
             }
-        elif self.current_message_type == 0x0105:
-            self.message_content = {}  # 暂无内容
         elif self.current_message_type == 0x0106:
             self.message_content = {
                 'target_message_type': self.target_message_type_combo.currentData(),
@@ -650,8 +653,14 @@ class LocationSecurityForm(QWidget):
 
             # 序列化数据
             data_hex = self.protocol.serialize(self.current_message_type, message_content)
-            
+            # 获取串口和波特率
+            port = self.serial_port_widget.get_selected_port()
+            baudrate = self.serial_port_widget.get_selected_baudrate()
+            if not port:
+                QMessageBox.warning(self, "错误", "请选择串口！")
+                return
             # 发送数据
+            self.data_sender = DataSender(port=port, baudrate=baudrate)
             self.data_sender.send_data(data_hex)
             
             # 显示成功消息
