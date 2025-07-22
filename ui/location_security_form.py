@@ -663,8 +663,6 @@ class LocationSecurityForm(QWidget):
             self.data_sender = DataSender(port=port, baudrate=baudrate)
             self.data_sender.send_data(data_hex)
             
-            # 显示成功消息
-            QMessageBox.information(self, "成功", "数据发送成功！")
             
         except Exception as e:
             QMessageBox.critical(self, "错误", f"发送数据时出错：{str(e)}")
